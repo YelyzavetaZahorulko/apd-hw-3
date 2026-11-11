@@ -98,4 +98,101 @@ final class StudentDirectoryHomeworkTests: XCTestCase {
             cell.accessibilityLabel?.contains(student.name) == true
         )
     }
+    
+    func testAddingStudentUsesDefaultValues() throws {
+        let store = StudentStore()
+
+        try store.addStudent(name: "New Student", age: 21)
+
+        let student = try XCTUnwrap(store.students.last)
+
+        XCTAssertEqual(student.name, "New Student")
+        XCTAssertEqual(student.age, 21)
+        XCTAssertEqual(student.averageGrade, 0)
+        XCTAssertFalse(student.isScholarshipHolder)
+        XCTAssertTrue(student.subjects.isEmpty)
+        XCTAssertEqual(student.avatarName, "avatar-default")
+    }
+
+    func testAddingNonPositiveAgeFails() {
+        let store = StudentStore()
+        let originalStudents = store.students
+
+        XCTAssertThrowsError(
+            try store.addStudent(name: "Test", age: 0)
+        ) { error in
+            XCTAssertEqual(
+                error as? StudentStoreError,
+                .nonPositiveAge
+            )
+        }
+
+        XCTAssertEqual(store.students, originalStudents)
+    }
+
+    func testUpdatingStudentChangesOnlyNameAndAge() throws {
+        let store = StudentStore()
+        let original = try XCTUnwrap(store.students.first)
+
+        try store.updateStudent(
+            id: original.id,
+            name: "Updated Name",
+            age: 25
+        )
+
+        let updated = try XCTUnwrap(
+            store.students.first { $0.id == original.id }
+        )
+
+        XCTAssertEqual(updated.name, "Updated Name")
+        XCTAssertEqual(updated.age, 25)
+        XCTAssertEqual(updated.id, original.id)
+        XCTAssertEqual(updated.averageGrade, original.averageGrade)
+        XCTAssertEqual(updated.isScholarshipHolder, original.isScholarshipHolder)
+        XCTAssertEqual(updated.subjects, original.subjects)
+        XCTAssertEqual(updated.avatarName, original.avatarName)
+    }
+
+    func testUpdatingUnknownStudentFails() {
+        let store = StudentStore()
+        let originalStudents = store.students
+        let unknownID = UUID()
+
+        XCTAssertThrowsError(
+            try store.updateStudent(
+                id: unknownID,
+                name: "Test",
+                age: 20
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? StudentStoreError,
+                .unknownID(unknownID)
+            )
+        }
+
+        XCTAssertEqual(store.students, originalStudents)
+    }
+
+    func testDeletingStudentRemovesOnlySelectedStudent() throws {
+        let store = StudentStore()
+        let originalStudents = store.students
+        let student = try XCTUnwrap(originalStudents.first)
+
+        try store.deleteStudent(id: student.id)
+
+        XCTAssertEqual(
+            store.students.count,
+            originalStudents.count - 1
+        )
+
+        XCTAssertFalse(
+            store.students.contains { $0.id == student.id }
+        )
+
+        XCTAssertEqual(
+            store.students,
+            Array(originalStudents.dropFirst())
+        )
+    }
 }
